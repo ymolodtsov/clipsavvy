@@ -27,6 +27,8 @@ interface ReadwiseContextType {
   login: (token: string) => Promise<boolean>;
   logout: () => void;
   refreshData: () => Promise<void>;
+  updateHighlight: (id: number, updates: { note?: string; text?: string }) => Promise<void>;
+  deleteHighlight: (id: number) => Promise<void>;
 }
 
 const ReadwiseContext = createContext<ReadwiseContextType | null>(null);
@@ -61,6 +63,36 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  }, [client]);
+
+  const updateHighlight = useCallback(async (id: number, updates: { note?: string; text?: string }) => {
+    if (!client) return;
+
+    await client.updateHighlight(id, updates);
+
+    // Optimistically update local state
+    setExports((prev) =>
+      prev.map((source) => ({
+        ...source,
+        highlights: source.highlights.map((h) =>
+          h.id === id ? { ...h, ...updates } : h
+        ),
+      }))
+    );
+  }, [client]);
+
+  const deleteHighlight = useCallback(async (id: number) => {
+    if (!client) return;
+
+    await client.deleteHighlight(id);
+
+    // Remove from local state
+    setExports((prev) =>
+      prev.map((source) => ({
+        ...source,
+        highlights: source.highlights.filter((h) => h.id !== id),
+      }))
+    );
   }, [client]);
 
   const login = useCallback(async (newToken: string): Promise<boolean> => {
@@ -123,6 +155,8 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         refreshData,
+        updateHighlight,
+        deleteHighlight,
       }}
     >
       {children}

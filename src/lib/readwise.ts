@@ -101,11 +101,17 @@ class ReadwiseClient {
 
   async updateHighlight(
     id: number,
-    updates: { note?: string }
+    updates: { note?: string; text?: string }
   ): Promise<Highlight> {
     return this.fetch<Highlight>(`/highlights/${id}/`, {
       method: "PATCH",
       body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteHighlight(id: number): Promise<void> {
+    await this.fetch(`/highlights/${id}/`, {
+      method: "DELETE",
     });
   }
 

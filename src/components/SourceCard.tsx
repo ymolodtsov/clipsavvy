@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { ExportResult } from "@/types/readwise";
@@ -24,7 +25,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   supplementals: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
 };
 
-export function SourceCard({ source }: SourceCardProps) {
+export const SourceCard = memo(function SourceCard({ source }: SourceCardProps) {
   const highlightCount = source.highlights.length;
   const categoryLabel = CATEGORY_LABELS[source.category] || source.category;
   const categoryColor = CATEGORY_COLORS[source.category] || CATEGORY_COLORS.supplementals;
@@ -76,4 +77,4 @@ export function SourceCard({ source }: SourceCardProps) {
       </div>
     </Link>
   );
-}
+});

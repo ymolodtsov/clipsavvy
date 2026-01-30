@@ -1,14 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useReadwise } from "@/lib/context";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { SourceCard } from "./SourceCard";
 import { HighlightCard } from "./HighlightCard";
+import { RandomHighlights } from "./RandomHighlights";
+import type { ExportResult, HighlightExport } from "@/types/readwise";
+
+interface HighlightWithSource {
+  highlight: HighlightExport;
+  source: ExportResult;
+}
+
+const PAGE_SIZE = 20;
 
 export function Dashboard() {
   const { exports, selectedCategory, searchQuery, isLoading } = useReadwise();
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const filteredSources = useMemo(() => {
     let sources = exports;
@@ -44,10 +54,7 @@ export function Dashboard() {
     if (!searchQuery.trim()) return [];
 
     const query = searchQuery.toLowerCase();
-    const highlights: Array<{
-      highlight: (typeof exports)[0]["highlights"][0];
-      source: (typeof exports)[0];
-    }> = [];
+    const highlights: HighlightWithSource[] = [];
 
     filteredSources.forEach((source) => {
       source.highlights.forEach((h) => {
@@ -67,7 +74,22 @@ export function Dashboard() {
     });
   }, [filteredSources, searchQuery]);
 
+  // Reset visible count when search query changes
+  useMemo(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery]);
+
+  const visibleHighlights = useMemo(() => {
+    return allHighlights.slice(0, visibleCount);
+  }, [allHighlights, visibleCount]);
+
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount((prev) => prev + PAGE_SIZE);
+  }, []);
+
   const showHighlights = searchQuery.trim().length > 0;
+  const showRandomHighlights = !isLoading && !showHighlights && exports.length > 0;
+  const hasMore = visibleCount < allHighlights.length;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black">
@@ -88,7 +110,7 @@ export function Dashboard() {
                 {allHighlights.length} highlight{allHighlights.length !== 1 ? "s" : ""} found
               </h2>
               <div className="space-y-4">
-                {allHighlights.map(({ highlight, source }) => (
+                {visibleHighlights.map(({ highlight, source }) => (
                   <HighlightCard
                     key={highlight.id}
                     highlight={highlight}
@@ -98,6 +120,16 @@ export function Dashboard() {
                   />
                 ))}
               </div>
+              {hasMore && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={handleLoadMore}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Load more ({allHighlights.length - visibleCount} remaining)
+                  </button>
+                </div>
+              )}
               {allHighlights.length === 0 && (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-12">
                   No highlights match your search.
@@ -106,6 +138,8 @@ export function Dashboard() {
             </div>
           ) : (
             <div>
+              {showRandomHighlights && <RandomHighlights exports={exports} />}
+
               <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
                 {filteredSources.length} source{filteredSources.length !== 1 ? "s" : ""}
               </h2>
