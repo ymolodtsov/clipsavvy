@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useReadwise } from "@/lib/context";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
@@ -74,10 +74,10 @@ export function Dashboard() {
     });
   }, [filteredSources, searchQuery]);
 
-  // Reset visible count when search query changes
-  useMemo(() => {
+  // Reset visible count when search query or category changes
+  useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory]);
 
   const visibleHighlights = useMemo(() => {
     return allHighlights.slice(0, visibleCount);
