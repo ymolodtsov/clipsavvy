@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useReadwise } from "@/lib/context";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
@@ -20,25 +20,12 @@ export function Dashboard() {
   const { exports, selectedCategory, searchQuery, isLoading } = useReadwise();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  // Filter sources by category
   const filteredSources = useMemo(() => {
     let sources = exports;
 
     if (selectedCategory !== "all") {
       sources = sources.filter((s) => s.category === selectedCategory);
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      sources = sources.filter(
-        (s) =>
-          s.title.toLowerCase().includes(query) ||
-          s.author?.toLowerCase().includes(query) ||
-          s.highlights.some(
-            (h) =>
-              h.text.toLowerCase().includes(query) ||
-              h.note?.toLowerCase().includes(query)
-          )
-      );
     }
 
     return sources.sort((a, b) => {
@@ -48,14 +35,16 @@ export function Dashboard() {
       if (!bDate) return -1;
       return new Date(bDate).getTime() - new Date(aDate).getTime();
     });
-  }, [exports, selectedCategory, searchQuery]);
+  }, [exports, selectedCategory]);
 
-  const allHighlights = useMemo(() => {
+  // Search highlights when there's a query
+  const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
 
     const query = searchQuery.toLowerCase();
     const highlights: HighlightWithSource[] = [];
 
+    // Search within filtered sources only
     filteredSources.forEach((source) => {
       source.highlights.forEach((h) => {
         if (
@@ -74,22 +63,16 @@ export function Dashboard() {
     });
   }, [filteredSources, searchQuery]);
 
-  // Reset visible count when search query or category changes
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, selectedCategory]);
-
-  const visibleHighlights = useMemo(() => {
-    return allHighlights.slice(0, visibleCount);
-  }, [allHighlights, visibleCount]);
-
   const handleLoadMore = useCallback(() => {
     setVisibleCount((prev) => prev + PAGE_SIZE);
   }, []);
 
-  const showHighlights = searchQuery.trim().length > 0;
-  const showRandomHighlights = !isLoading && !showHighlights && exports.length > 0;
-  const hasMore = visibleCount < allHighlights.length;
+  // Reset pagination when search changes
+  const visibleResults = searchResults.slice(0, visibleCount);
+  const hasMore = visibleCount < searchResults.length;
+
+  // Determine what to show
+  const isSearching = searchQuery.trim().length > 0;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-black">
@@ -104,51 +87,62 @@ export function Dashboard() {
                 <p className="text-gray-500 dark:text-gray-400">Loading your highlights...</p>
               </div>
             </div>
-          ) : showHighlights ? (
+          ) : isSearching ? (
+            // Search results view
             <div>
               <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
-                {allHighlights.length} highlight{allHighlights.length !== 1 ? "s" : ""} found
+                {searchResults.length} highlight{searchResults.length !== 1 ? "s" : ""} found
+                {selectedCategory !== "all" && ` in ${selectedCategory}`}
               </h2>
-              <div className="space-y-4">
-                {visibleHighlights.map(({ highlight, source }) => (
-                  <HighlightCard
-                    key={highlight.id}
-                    highlight={highlight}
-                    sourceTitle={source.title}
-                    sourceAuthor={source.author}
-                    showSource
-                  />
-                ))}
-              </div>
-              {hasMore && (
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={handleLoadMore}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Load more ({allHighlights.length - visibleCount} remaining)
-                  </button>
-                </div>
-              )}
-              {allHighlights.length === 0 && (
+              {searchResults.length > 0 ? (
+                <>
+                  <div className="space-y-4">
+                    {visibleResults.map(({ highlight, source }) => (
+                      <HighlightCard
+                        key={highlight.id}
+                        highlight={highlight}
+                        sourceTitle={source.title}
+                        sourceAuthor={source.author}
+                        showSource
+                      />
+                    ))}
+                  </div>
+                  {hasMore && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={handleLoadMore}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Load more ({searchResults.length - visibleCount} remaining)
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-12">
                   No highlights match your search.
                 </p>
               )}
             </div>
           ) : (
+            // Sources grid view
             <div>
-              {showRandomHighlights && <RandomHighlights exports={exports} />}
+              {selectedCategory === "all" && exports.length > 0 && (
+                <RandomHighlights exports={exports} />
+              )}
 
               <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
                 {filteredSources.length} source{filteredSources.length !== 1 ? "s" : ""}
+                {selectedCategory !== "all" && ` in ${selectedCategory}`}
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredSources.map((source) => (
-                  <SourceCard key={source.user_book_id} source={source} />
-                ))}
-              </div>
-              {filteredSources.length === 0 && (
+
+              {filteredSources.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredSources.map((source) => (
+                    <SourceCard key={source.user_book_id} source={source} />
+                  ))}
+                </div>
+              ) : (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-12">
                   No sources found in this category.
                 </p>
