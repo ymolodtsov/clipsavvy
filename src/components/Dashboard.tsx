@@ -14,11 +14,14 @@ interface HighlightWithSource {
   source: ExportResult;
 }
 
+type ViewMode = "random" | "sources";
+
 const PAGE_SIZE = 20;
 
 export function Dashboard() {
   const { exports, selectedCategory, searchQuery, isLoading } = useReadwise();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [viewMode, setViewMode] = useState<ViewMode>("random");
 
   // Filter sources by category
   const filteredSources = useMemo(() => {
@@ -78,7 +81,7 @@ export function Dashboard() {
     <div className="min-h-screen bg-gray-100 dark:bg-black">
       <Header />
       <div className="flex">
-        <Sidebar />
+        <Sidebar viewMode={viewMode} setViewMode={setViewMode} />
         <main className="flex-1 p-6 overflow-y-auto h-[calc(100vh-64px)]">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
@@ -124,13 +127,12 @@ export function Dashboard() {
                 </p>
               )}
             </div>
+          ) : viewMode === "random" ? (
+            // Random highlights view
+            <RandomHighlights exports={exports} />
           ) : (
             // Sources grid view
             <div>
-              {selectedCategory === "all" && exports.length > 0 && (
-                <RandomHighlights exports={exports} />
-              )}
-
               <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
                 {filteredSources.length} source{filteredSources.length !== 1 ? "s" : ""}
                 {selectedCategory !== "all" && ` in ${selectedCategory}`}

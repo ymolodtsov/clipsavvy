@@ -3,6 +3,13 @@
 import { useReadwise } from "@/lib/context";
 import type { SourceCategory } from "@/types/readwise";
 
+type ViewMode = "random" | "sources";
+
+interface SidebarProps {
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
+}
+
 const CATEGORIES: { value: SourceCategory; label: string; icon: string }[] = [
   { value: "all", label: "All Sources", icon: "M4 6h16M4 12h16M4 18h16" },
   {
@@ -32,8 +39,8 @@ const CATEGORIES: { value: SourceCategory; label: string; icon: string }[] = [
   },
 ];
 
-export function Sidebar() {
-  const { selectedCategory, setSelectedCategory, books, exports } = useReadwise();
+export function Sidebar({ viewMode, setViewMode }: SidebarProps) {
+  const { selectedCategory, setSelectedCategory, exports } = useReadwise();
 
   const getCategoryCount = (category: SourceCategory) => {
     if (category === "all") return exports.length;
@@ -61,14 +68,50 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-1">
+          {/* Random Highlights - Primary View */}
+          <button
+            onClick={() => setViewMode("random")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors
+              ${
+                viewMode === "random"
+                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+          >
+            <svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span className="flex-1 truncate">Random Highlights</span>
+          </button>
+
+          <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
+
+          {/* Source Categories */}
+          <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider px-3 mb-2">
+            Browse Sources
+          </div>
+
           {CATEGORIES.map((category) => {
             const count = getCategoryCount(category.value);
-            const isSelected = selectedCategory === category.value;
+            const isSelected = viewMode === "sources" && selectedCategory === category.value;
 
             return (
               <button
                 key={category.value}
-                onClick={() => setSelectedCategory(category.value)}
+                onClick={() => {
+                  setViewMode("sources");
+                  setSelectedCategory(category.value);
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors
                   ${
                     isSelected

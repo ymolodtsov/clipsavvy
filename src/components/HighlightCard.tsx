@@ -67,13 +67,13 @@ export const HighlightCard = memo(function HighlightCard({
   }, [highlight.note]);
 
   return (
-    <article className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 relative group">
-      {/* Menu button */}
+    <article className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 relative">
+      {/* Menu button - always visible */}
       <div className="absolute top-2 right-2">
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
-                     opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                     rounded hover:bg-gray-100 dark:hover:bg-gray-800"
           aria-label="More options"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
