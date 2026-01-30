@@ -1,0 +1,128 @@
+"use client";
+
+import { useMemo } from "react";
+import { useReadwise } from "@/lib/context";
+import { Header } from "./Header";
+import { Sidebar } from "./Sidebar";
+import { SourceCard } from "./SourceCard";
+import { HighlightCard } from "./HighlightCard";
+
+export function Dashboard() {
+  const { exports, selectedCategory, searchQuery, isLoading } = useReadwise();
+
+  const filteredSources = useMemo(() => {
+    let sources = exports;
+
+    if (selectedCategory !== "all") {
+      sources = sources.filter((s) => s.category === selectedCategory);
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      sources = sources.filter(
+        (s) =>
+          s.title.toLowerCase().includes(query) ||
+          s.author?.toLowerCase().includes(query) ||
+          s.highlights.some(
+            (h) =>
+              h.text.toLowerCase().includes(query) ||
+              h.note?.toLowerCase().includes(query)
+          )
+      );
+    }
+
+    return sources.sort((a, b) => {
+      const aDate = a.highlights[0]?.highlighted_at || a.highlights[0]?.created_at;
+      const bDate = b.highlights[0]?.highlighted_at || b.highlights[0]?.created_at;
+      if (!aDate) return 1;
+      if (!bDate) return -1;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+  }, [exports, selectedCategory, searchQuery]);
+
+  const allHighlights = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+
+    const query = searchQuery.toLowerCase();
+    const highlights: Array<{
+      highlight: (typeof exports)[0]["highlights"][0];
+      source: (typeof exports)[0];
+    }> = [];
+
+    filteredSources.forEach((source) => {
+      source.highlights.forEach((h) => {
+        if (
+          h.text.toLowerCase().includes(query) ||
+          h.note?.toLowerCase().includes(query)
+        ) {
+          highlights.push({ highlight: h, source });
+        }
+      });
+    });
+
+    return highlights.sort((a, b) => {
+      const aDate = a.highlight.highlighted_at || a.highlight.created_at;
+      const bDate = b.highlight.highlighted_at || b.highlight.created_at;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+  }, [filteredSources, searchQuery]);
+
+  const showHighlights = searchQuery.trim().length > 0;
+
+  return (
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
+      <Header />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-6 overflow-y-auto h-[calc(100vh-64px)]">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <p className="text-gray-500 dark:text-gray-400">Loading your highlights...</p>
+              </div>
+            </div>
+          ) : showHighlights ? (
+            <div>
+              <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
+                {allHighlights.length} highlight{allHighlights.length !== 1 ? "s" : ""} found
+              </h2>
+              <div className="space-y-4">
+                {allHighlights.map(({ highlight, source }) => (
+                  <HighlightCard
+                    key={highlight.id}
+                    highlight={highlight}
+                    sourceTitle={source.title}
+                    sourceAuthor={source.author}
+                    showSource
+                  />
+                ))}
+              </div>
+              {allHighlights.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-12">
+                  No highlights match your search.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
+                {filteredSources.length} source{filteredSources.length !== 1 ? "s" : ""}
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredSources.map((source) => (
+                  <SourceCard key={source.user_book_id} source={source} />
+                ))}
+              </div>
+              {filteredSources.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-12">
+                  No sources found in this category.
+                </p>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
