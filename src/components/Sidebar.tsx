@@ -1,9 +1,10 @@
 "use client";
 
+import { useMemo } from "react";
 import { useReadwise } from "@/lib/context";
 import type { SourceCategory } from "@/types/readwise";
 
-type ViewMode = "random" | "sources";
+type ViewMode = "random" | "favorites" | "sources" | "add";
 
 interface SidebarProps {
   viewMode: ViewMode;
@@ -51,6 +52,18 @@ export function Sidebar({ viewMode, setViewMode }: SidebarProps) {
     return exports.reduce((sum, e) => sum + e.highlights.length, 0);
   };
 
+  const favoritesCount = useMemo(() => {
+    let count = 0;
+    exports.forEach((source) => {
+      source.highlights.forEach((h) => {
+        if (h.is_favorite) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [exports]);
+
   return (
     <aside className="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-[calc(100vh-64px)] overflow-y-auto">
       <div className="p-4">
@@ -92,6 +105,35 @@ export function Sidebar({ viewMode, setViewMode }: SidebarProps) {
               />
             </svg>
             <span className="flex-1 truncate">Random Highlights</span>
+          </button>
+
+          {/* Favorites */}
+          <button
+            onClick={() => setViewMode("favorites")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors
+              ${
+                viewMode === "favorites"
+                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+          >
+            <svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+            </svg>
+            <span className="flex-1 truncate">Favorites</span>
+            <span
+              className={`text-sm ${
+                viewMode === "favorites"
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-gray-400 dark:text-gray-500"
+              }`}
+            >
+              {favoritesCount}
+            </span>
           </button>
 
           <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
@@ -145,6 +187,34 @@ export function Sidebar({ viewMode, setViewMode }: SidebarProps) {
               </button>
             );
           })}
+
+          <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
+
+          {/* Add Highlight */}
+          <button
+            onClick={() => setViewMode("add")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors
+              ${
+                viewMode === "add"
+                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+          >
+            <svg
+              className="w-5 h-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <span className="flex-1 truncate">Add Highlight</span>
+          </button>
         </nav>
       </div>
     </aside>

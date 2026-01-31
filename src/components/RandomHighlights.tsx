@@ -86,6 +86,7 @@ export function RandomHighlights({ exports }: RandomHighlightsProps) {
             highlight={highlight}
             sourceTitle={source.title}
             sourceAuthor={source.author}
+            sourceId={source.user_book_id}
             showSource
           />
         ))}

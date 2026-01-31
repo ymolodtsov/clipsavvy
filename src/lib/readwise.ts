@@ -144,6 +144,21 @@ class ReadwiseClient {
     return allExports;
   }
 
+  async createHighlight(highlight: {
+    text: string;
+    title?: string;
+    author?: string;
+    source_url?: string;
+    category?: "books" | "articles" | "tweets" | "podcasts" | "supplementals";
+    note?: string;
+    highlighted_at?: string;
+  }): Promise<{ id: number; modified_highlights: number[] }> {
+    return this.fetch("/highlights/", {
+      method: "POST",
+      body: JSON.stringify({ highlights: [highlight] }),
+    });
+  }
+
   async addTagToHighlight(highlightId: number, tagName: string): Promise<void> {
     await this.fetch(`/highlights/${highlightId}/tags/`, {
       method: "POST",

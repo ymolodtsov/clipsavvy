@@ -6,10 +6,20 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { createReadwiseClient, type ReadwiseClient } from "./readwise";
-import { getStoredToken, setStoredToken, clearStoredToken } from "./storage";
+import {
+  getStoredToken,
+  setStoredToken,
+  clearAllStorage,
+  getStoredExports,
+  setStoredExports,
+  getLastSyncedAt,
+  setLastSyncedAt,
+  mergeExports,
+} from "./storage";
 import type { Book, ExportResult, SourceCategory } from "@/types/readwise";
 
 interface ReadwiseContextType {
@@ -17,6 +27,8 @@ interface ReadwiseContextType {
   client: ReadwiseClient | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
   error: string | null;
   books: Book[];
   exports: ExportResult[];
@@ -26,9 +38,17 @@ interface ReadwiseContextType {
   setSearchQuery: (query: string) => void;
   login: (token: string) => Promise<boolean>;
   logout: () => void;
-  refreshData: () => Promise<void>;
+  refreshData: (forceFullSync?: boolean) => Promise<void>;
   updateHighlight: (id: number, updates: { note?: string; text?: string }) => Promise<void>;
   deleteHighlight: (id: number) => Promise<void>;
+  createHighlight: (highlight: {
+    text: string;
+    title?: string;
+    author?: string;
+    source_url?: string;
+    category?: "books" | "articles" | "tweets" | "podcasts" | "supplementals";
+    note?: string;
+  }) => Promise<boolean>;
 }
 
 const ReadwiseContext = createContext<ReadwiseContextType | null>(null);
@@ -37,33 +57,80 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [client, setClient] = useState<ReadwiseClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAtState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [exports, setExports] = useState<ExportResult[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<SourceCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Track if initial load from cache has happened
+  const hasLoadedCache = useRef(false);
+
   const isAuthenticated = !!token && !!client;
 
-  const refreshData = useCallback(async () => {
+  // Sync data - supports incremental sync via updatedAfter
+  const refreshData = useCallback(async (forceFullSync = false) => {
     if (!client) return;
 
-    setIsLoading(true);
+    const cachedLastSynced = getLastSyncedAt();
+    const isIncrementalSync = !forceFullSync && cachedLastSynced && exports.length > 0;
+
+    // Use isSyncing for background sync, isLoading for initial load
+    if (isIncrementalSync) {
+      setIsSyncing(true);
+    } else {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
+      // Record sync start time before fetching
+      const syncStartTime = new Date().toISOString();
+
+      // Fetch data - use updatedAfter for incremental sync
       const [booksData, exportsData] = await Promise.all([
         client.getAllBooks(),
-        client.getAllExports(),
+        client.getAllExports(isIncrementalSync ? cachedLastSynced : undefined),
       ]);
+
       setBooks(booksData);
-      setExports(exportsData);
+
+      // Merge or replace exports
+      let finalExports: ExportResult[];
+      if (isIncrementalSync && exportsData.length > 0) {
+        // Merge new/updated exports with existing
+        finalExports = mergeExports(exports, exportsData);
+        console.log(`Incremental sync: merged ${exportsData.length} updated sources`);
+      } else if (isIncrementalSync && exportsData.length === 0) {
+        // No updates - keep existing
+        finalExports = exports;
+        console.log("Incremental sync: no updates");
+      } else {
+        // Full sync - replace all
+        finalExports = exportsData;
+        console.log(`Full sync: loaded ${exportsData.length} sources`);
+      }
+
+      setExports(finalExports);
+
+      // Update cache and sync timestamp
+      const cacheSuccess = setStoredExports(finalExports);
+      if (!cacheSuccess) {
+        console.warn("Could not cache exports - data may be too large for localStorage");
+      }
+      setLastSyncedAt(syncStartTime);
+      setLastSyncedAtState(syncStartTime);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch data";
+      setError(errorMessage);
+      console.error("Sync failed:", errorMessage);
     } finally {
       setIsLoading(false);
+      setIsSyncing(false);
     }
-  }, [client]);
+  }, [client, exports]);
 
   const updateHighlight = useCallback(async (id: number, updates: { note?: string; text?: string }) => {
     if (!client) return;
@@ -71,14 +138,17 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
     await client.updateHighlight(id, updates);
 
     // Optimistically update local state
-    setExports((prev) =>
-      prev.map((source) => ({
+    setExports((prev) => {
+      const updated = prev.map((source) => ({
         ...source,
         highlights: source.highlights.map((h) =>
           h.id === id ? { ...h, ...updates } : h
         ),
-      }))
-    );
+      }));
+      // Update cache
+      setStoredExports(updated);
+      return updated;
+    });
   }, [client]);
 
   const deleteHighlight = useCallback(async (id: number) => {
@@ -87,13 +157,40 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
     await client.deleteHighlight(id);
 
     // Remove from local state
-    setExports((prev) =>
-      prev.map((source) => ({
+    setExports((prev) => {
+      const updated = prev.map((source) => ({
         ...source,
         highlights: source.highlights.filter((h) => h.id !== id),
-      }))
-    );
+      }));
+      // Update cache
+      setStoredExports(updated);
+      return updated;
+    });
   }, [client]);
+
+  const createHighlight = useCallback(async (highlight: {
+    text: string;
+    title?: string;
+    author?: string;
+    source_url?: string;
+    category?: "books" | "articles" | "tweets" | "podcasts" | "supplementals";
+    note?: string;
+  }): Promise<boolean> => {
+    if (!client) return false;
+
+    try {
+      await client.createHighlight({
+        ...highlight,
+        highlighted_at: new Date().toISOString(),
+      });
+      // Refresh data to get the new highlight
+      await refreshData(false);
+      return true;
+    } catch (err) {
+      console.error("Failed to create highlight:", err);
+      return false;
+    }
+  }, [client, refreshData]);
 
   const login = useCallback(async (newToken: string): Promise<boolean> => {
     setIsLoading(true);
@@ -106,6 +203,17 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
       setToken(newToken);
       setClient(newClient);
       setStoredToken(newToken);
+
+      // Load cached data immediately if available
+      const cachedExports = getStoredExports();
+      const cachedLastSynced = getLastSyncedAt();
+      if (cachedExports && cachedExports.length > 0) {
+        setExports(cachedExports);
+        setLastSyncedAtState(cachedLastSynced);
+        hasLoadedCache.current = true;
+        console.log(`Loaded ${cachedExports.length} sources from cache`);
+      }
+
       setIsLoading(false);
       return true;
     } else {
@@ -120,9 +228,12 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
     setClient(null);
     setBooks([]);
     setExports([]);
-    clearStoredToken();
+    setLastSyncedAtState(null);
+    hasLoadedCache.current = false;
+    clearAllStorage();
   }, []);
 
+  // Initialize from stored token on mount
   useEffect(() => {
     const storedToken = getStoredToken();
     if (storedToken) {
@@ -132,9 +243,12 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
     }
   }, [login]);
 
+  // Sync data when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      refreshData();
+      // If we have cached data, do an incremental sync in the background
+      // Otherwise, do a full sync
+      refreshData(false);
     }
   }, [isAuthenticated, refreshData]);
 
@@ -145,6 +259,8 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
         client,
         isAuthenticated,
         isLoading,
+        isSyncing,
+        lastSyncedAt,
         error,
         books,
         exports,
@@ -157,6 +273,7 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
         refreshData,
         updateHighlight,
         deleteHighlight,
+        createHighlight,
       }}
     >
       {children}

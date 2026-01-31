@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, memo } from "react";
+import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import type { HighlightExport } from "@/types/readwise";
 import { useReadwise } from "@/lib/context";
 
@@ -8,6 +10,7 @@ interface HighlightCardProps {
   highlight: HighlightExport;
   sourceTitle?: string;
   sourceAuthor?: string | null;
+  sourceId?: number;
   showSource?: boolean;
 }
 
@@ -15,6 +18,7 @@ export const HighlightCard = memo(function HighlightCard({
   highlight,
   sourceTitle,
   sourceAuthor,
+  sourceId,
   showSource = false,
 }: HighlightCardProps) {
   const { updateHighlight, deleteHighlight } = useReadwise();
@@ -25,9 +29,9 @@ export const HighlightCard = memo(function HighlightCard({
   const [isSaving, setIsSaving] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
-  const isLongText = highlight.text.length > 300;
+  const isLongText = highlight.text.length > 800;
   const displayText =
-    isLongText && !expanded ? highlight.text.slice(0, 300) + "..." : highlight.text;
+    isLongText && !expanded ? highlight.text.slice(0, 800) + "..." : highlight.text;
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
@@ -137,16 +141,50 @@ export const HighlightCard = memo(function HighlightCard({
       )}
 
       <blockquote className="text-black dark:text-white leading-relaxed pr-8">
-        {displayText}
-        {isLongText && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="ml-2 text-blue-600 dark:text-blue-400 hover:underline text-sm"
-          >
-            {expanded ? "Show less" : "Show more"}
-          </button>
-        )}
+        <ReactMarkdown
+          components={{
+            img: ({ src, alt }) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={src}
+                alt={alt || ""}
+                className="max-w-full h-auto rounded-lg my-2"
+              />
+            ),
+            a: ({ href, children }) => (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {children}
+              </a>
+            ),
+            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+            code: ({ children }) => (
+              <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm">
+                {children}
+              </code>
+            ),
+            pre: ({ children }) => (
+              <pre className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-x-auto my-2">
+                {children}
+              </pre>
+            ),
+          }}
+        >
+          {displayText}
+        </ReactMarkdown>
       </blockquote>
+      {isLongText && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-2 text-blue-600 dark:text-blue-400 hover:underline text-sm"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
 
       {/* Note section */}
       {isEditing ? (
@@ -178,10 +216,32 @@ export const HighlightCard = memo(function HighlightCard({
           </div>
         </div>
       ) : highlight.note ? (
-        <div className="mt-3 pl-3 border-l-2 border-blue-500">
-          <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+        <div className="mt-3 pl-3 border-l-2 border-blue-500 text-sm text-gray-600 dark:text-gray-400 italic">
+          <ReactMarkdown
+            components={{
+              img: ({ src, alt }) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={src}
+                  alt={alt || ""}
+                  className="max-w-full h-auto rounded-lg my-2"
+                />
+              ),
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {children}
+                </a>
+              ),
+              p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+            }}
+          >
             {highlight.note}
-          </p>
+          </ReactMarkdown>
         </div>
       ) : null}
 
@@ -202,10 +262,20 @@ export const HighlightCard = memo(function HighlightCard({
       <div className="mt-3 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-3">
           {showSource && sourceTitle && (
-            <span className="truncate max-w-[200px]">
-              {sourceTitle}
-              {sourceAuthor && ` — ${sourceAuthor}`}
-            </span>
+            sourceId ? (
+              <Link
+                href={`/sources/${sourceId}`}
+                className="truncate max-w-[200px] hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                {sourceTitle}
+                {sourceAuthor && ` — ${sourceAuthor}`}
+              </Link>
+            ) : (
+              <span className="truncate max-w-[200px]">
+                {sourceTitle}
+                {sourceAuthor && ` — ${sourceAuthor}`}
+              </span>
+            )
           )}
           {highlight.location && (
             <span>

@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { SourceCard } from "./SourceCard";
 import { HighlightCard } from "./HighlightCard";
 import { RandomHighlights } from "./RandomHighlights";
+import { AddHighlight } from "./AddHighlight";
 import type { ExportResult, HighlightExport } from "@/types/readwise";
 
 interface HighlightWithSource {
@@ -14,7 +15,7 @@ interface HighlightWithSource {
   source: ExportResult;
 }
 
-type ViewMode = "random" | "sources";
+type ViewMode = "random" | "favorites" | "sources" | "add";
 
 const PAGE_SIZE = 20;
 
@@ -66,6 +67,25 @@ export function Dashboard() {
     });
   }, [filteredSources, searchQuery]);
 
+  // Get favorite highlights (from Readwise)
+  const favoriteHighlights = useMemo(() => {
+    const highlights: HighlightWithSource[] = [];
+
+    exports.forEach((source) => {
+      source.highlights.forEach((h) => {
+        if (h.is_favorite) {
+          highlights.push({ highlight: h, source });
+        }
+      });
+    });
+
+    return highlights.sort((a, b) => {
+      const aDate = a.highlight.highlighted_at || a.highlight.created_at;
+      const bDate = b.highlight.highlighted_at || b.highlight.created_at;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+  }, [exports]);
+
   const handleLoadMore = useCallback(() => {
     setVisibleCount((prev) => prev + PAGE_SIZE);
   }, []);
@@ -106,6 +126,7 @@ export function Dashboard() {
                         highlight={highlight}
                         sourceTitle={source.title}
                         sourceAuthor={source.author}
+                        sourceId={source.user_book_id}
                         showSource
                       />
                     ))}
@@ -130,6 +151,34 @@ export function Dashboard() {
           ) : viewMode === "random" ? (
             // Random highlights view
             <RandomHighlights exports={exports} />
+          ) : viewMode === "favorites" ? (
+            // Favorites view
+            <div>
+              <h2 className="text-lg font-semibold text-black dark:text-white mb-4">
+                {favoriteHighlights.length} favorite{favoriteHighlights.length !== 1 ? "s" : ""}
+              </h2>
+              {favoriteHighlights.length > 0 ? (
+                <div className="space-y-4">
+                  {favoriteHighlights.map(({ highlight, source }) => (
+                    <HighlightCard
+                      key={highlight.id}
+                      highlight={highlight}
+                      sourceTitle={source.title}
+                      sourceAuthor={source.author}
+                      sourceId={source.user_book_id}
+                      showSource
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-12">
+                  No favorite highlights yet. Favorite highlights in the Readwise app to see them here.
+                </p>
+              )}
+            </div>
+          ) : viewMode === "add" ? (
+            // Add highlight view
+            <AddHighlight />
           ) : (
             // Sources grid view
             <div>

@@ -1,17 +1,45 @@
 "use client";
 
+import Link from "next/link";
 import { useReadwise } from "@/lib/context";
 
+function formatLastSynced(dateString: string | null): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+}
+
 export function Header() {
-  const { logout, refreshData, isLoading, searchQuery, setSearchQuery } = useReadwise();
+  const { logout, refreshData, isLoading, isSyncing, lastSyncedAt, searchQuery, setSearchQuery, setSelectedCategory } = useReadwise();
+
+  const isRefreshing = isLoading || isSyncing;
 
   return (
     <header className="sticky top-0 z-10 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-black dark:text-white">
+          <Link
+            href="/"
+            onClick={() => setSelectedCategory("all")}
+            className="text-xl font-bold text-black dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          >
             ClipSavvy
-          </h1>
+          </Link>
+          {isSyncing && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+              Syncing...
+            </span>
+          )}
         </div>
 
         <div className="flex-1 max-w-xl mx-4">
@@ -43,16 +71,21 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-3">
+          {lastSyncedAt && !isSyncing && (
+            <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">
+              Synced {formatLastSynced(lastSyncedAt)}
+            </span>
+          )}
           <button
-            onClick={refreshData}
-            disabled={isLoading}
+            onClick={() => refreshData()}
+            disabled={isRefreshing}
             className="p-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white
                        hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors
                        disabled:opacity-50"
-            title="Refresh data"
+            title={lastSyncedAt ? `Last synced: ${formatLastSynced(lastSyncedAt)}` : "Refresh data"}
           >
             <svg
-              className={`w-5 h-5 ${isLoading ? "animate-spin" : ""}`}
+              className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
