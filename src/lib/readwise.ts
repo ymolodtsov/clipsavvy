@@ -110,9 +110,26 @@ class ReadwiseClient {
   }
 
   async deleteHighlight(id: number): Promise<void> {
-    await this.fetch(`/highlights/${id}/`, {
+    const response = await fetch(`${API_BASE}/highlights/${id}/`, {
       method: "DELETE",
+      headers: {
+        Authorization: `Token ${this.token}`,
+      },
     });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Invalid API token");
+      }
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        throw new Error(
+          `Rate limited. Retry after ${retryAfter || "60"} seconds`
+        );
+      }
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    // DELETE returns 204 No Content - no need to parse response body
   }
 
   async exportHighlights(
