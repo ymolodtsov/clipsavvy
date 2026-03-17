@@ -4,13 +4,6 @@ import { useMemo } from "react";
 import { useReadwise } from "@/lib/context";
 import type { SourceCategory } from "@/types/readwise";
 
-type ViewMode = "random" | "favorites" | "sources" | "add";
-
-interface SidebarProps {
-  viewMode: ViewMode;
-  setViewMode: (mode: ViewMode) => void;
-}
-
 const CATEGORIES: { value: SourceCategory; label: string; icon: string }[] = [
   { value: "all", label: "All Sources", icon: "M4 6h16M4 12h16M4 18h16" },
   {
@@ -40,8 +33,8 @@ const CATEGORIES: { value: SourceCategory; label: string; icon: string }[] = [
   },
 ];
 
-export function Sidebar({ viewMode, setViewMode }: SidebarProps) {
-  const { selectedCategory, setSelectedCategory, exports } = useReadwise();
+export function Sidebar() {
+  const { selectedCategory, setSelectedCategory, exports, viewMode, setViewMode } = useReadwise();
 
   const getCategoryCount = (category: SourceCategory) => {
     if (category === "all") return exports.length;

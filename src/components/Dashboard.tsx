@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useReadwise } from "@/lib/context";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
@@ -15,14 +15,11 @@ interface HighlightWithSource {
   source: ExportResult;
 }
 
-type ViewMode = "random" | "favorites" | "sources" | "add";
-
 const PAGE_SIZE = 20;
 
 export function Dashboard() {
-  const { exports, selectedCategory, searchQuery, isLoading } = useReadwise();
+  const { exports, selectedCategory, searchQuery, isLoading, viewMode, setViewMode } = useReadwise();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [viewMode, setViewMode] = useState<ViewMode>("random");
 
   // Filter sources by category
   const filteredSources = useMemo(() => {
@@ -91,6 +88,10 @@ export function Dashboard() {
   }, []);
 
   // Reset pagination when search changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery]);
+
   const visibleResults = searchResults.slice(0, visibleCount);
   const hasMore = visibleCount < searchResults.length;
 
@@ -101,7 +102,7 @@ export function Dashboard() {
     <div className="min-h-screen bg-gray-100 dark:bg-black">
       <Header />
       <div className="flex">
-        <Sidebar viewMode={viewMode} setViewMode={setViewMode} />
+        <Sidebar />
         <main className="flex-1 p-6 overflow-y-auto h-[calc(100vh-64px)]">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">

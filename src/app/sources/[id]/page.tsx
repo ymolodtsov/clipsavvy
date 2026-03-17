@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useReadwise } from "@/lib/context";
@@ -52,8 +52,12 @@ const getCategoryIcon = (category: string, size = "w-8 h-8") => {
 export default function SourceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { exports, isAuthenticated, isLoading } = useReadwise();
+  const { exports, isAuthenticated, isLoading, setViewMode } = useReadwise();
   const [imgError, setImgError] = useState(false);
+
+  const handleBackToSources = useCallback(() => {
+    setViewMode("sources");
+  }, [setViewMode]);
 
   const sourceId = Number(params.id);
 
@@ -83,6 +87,7 @@ export default function SourceDetailPage() {
         <div className="max-w-4xl mx-auto">
           <Link
             href="/"
+            onClick={handleBackToSources}
             className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white mb-6"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,6 +113,7 @@ export default function SourceDetailPage() {
       <div className="max-w-4xl mx-auto p-6">
         <Link
           href="/"
+          onClick={handleBackToSources}
           className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white mb-6"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

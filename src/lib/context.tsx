@@ -22,6 +22,8 @@ import {
 } from "./storage";
 import type { Book, ExportResult, SourceCategory } from "@/types/readwise";
 
+type ViewMode = "random" | "favorites" | "sources" | "add";
+
 interface ReadwiseContextType {
   token: string | null;
   client: ReadwiseClient | null;
@@ -36,6 +38,8 @@ interface ReadwiseContextType {
   setSelectedCategory: (category: SourceCategory) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
   login: (token: string) => Promise<boolean>;
   logout: () => void;
   refreshData: (forceFullSync?: boolean) => Promise<void>;
@@ -64,9 +68,13 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
   const [exports, setExports] = useState<ExportResult[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<SourceCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("random");
 
   // Track if initial load from cache has happened
   const hasLoadedCache = useRef(false);
+  // Ref to avoid stale closure on exports in refreshData
+  const exportsRef = useRef(exports);
+  exportsRef.current = exports;
 
   const isAuthenticated = !!token && !!client;
 
@@ -74,8 +82,9 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
   const refreshData = useCallback(async (forceFullSync = false) => {
     if (!client) return;
 
+    const currentExports = exportsRef.current;
     const cachedLastSynced = getLastSyncedAt();
-    const isIncrementalSync = !forceFullSync && cachedLastSynced && exports.length > 0;
+    const isIncrementalSync = !forceFullSync && cachedLastSynced && currentExports.length > 0;
 
     // Use isSyncing for background sync, isLoading for initial load
     if (isIncrementalSync) {
@@ -101,11 +110,11 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
       let finalExports: ExportResult[];
       if (isIncrementalSync && exportsData.length > 0) {
         // Merge new/updated exports with existing
-        finalExports = mergeExports(exports, exportsData);
+        finalExports = mergeExports(currentExports, exportsData);
         console.log(`Incremental sync: merged ${exportsData.length} updated sources`);
       } else if (isIncrementalSync && exportsData.length === 0) {
         // No updates - keep existing
-        finalExports = exports;
+        finalExports = currentExports;
         console.log("Incremental sync: no updates");
       } else {
         // Full sync - replace all
@@ -130,7 +139,7 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       setIsSyncing(false);
     }
-  }, [client, exports]);
+  }, [client]);
 
   const updateHighlight = useCallback(async (id: number, updates: { note?: string; text?: string }) => {
     if (!client) return;
@@ -156,12 +165,14 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
 
     await client.deleteHighlight(id);
 
-    // Remove from local state
+    // Remove from local state and filter out empty sources
     setExports((prev) => {
-      const updated = prev.map((source) => ({
-        ...source,
-        highlights: source.highlights.filter((h) => h.id !== id),
-      }));
+      const updated = prev
+        .map((source) => ({
+          ...source,
+          highlights: source.highlights.filter((h) => h.id !== id),
+        }))
+        .filter((source) => source.highlights.length > 0);
       // Update cache
       setStoredExports(updated);
       return updated;
@@ -268,6 +279,8 @@ export function ReadwiseProvider({ children }: { children: ReactNode }) {
         setSelectedCategory,
         searchQuery,
         setSearchQuery,
+        viewMode,
+        setViewMode,
         login,
         logout,
         refreshData,

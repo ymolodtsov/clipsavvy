@@ -70,6 +70,15 @@ export const HighlightCard = memo(function HighlightCard({
     setIsEditing(false);
   }, [highlight.note]);
 
+  const sanitizeUrl = useCallback((url: string | undefined) => {
+    if (!url) return undefined;
+    const trimmed = url.trim().toLowerCase();
+    if (trimmed.startsWith("javascript:") || trimmed.startsWith("data:") || trimmed.startsWith("vbscript:")) {
+      return undefined;
+    }
+    return url;
+  }, []);
+
   return (
     <article className="p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 relative">
       {/* Menu button - always visible */}
@@ -151,16 +160,20 @@ export const HighlightCard = memo(function HighlightCard({
                 className="max-w-full h-auto rounded-lg my-2"
               />
             ),
-            a: ({ href, children }) => (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                {children}
-              </a>
-            ),
+            a: ({ href, children }) => {
+              const safeHref = sanitizeUrl(href);
+              if (!safeHref) return <span>{children}</span>;
+              return (
+                <a
+                  href={safeHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {children}
+                </a>
+              );
+            },
             p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
             code: ({ children }) => (
               <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm">
